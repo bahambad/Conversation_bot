@@ -13,15 +13,6 @@ dp = Dispatcher()
 dp.include_router(main_router)
 
 
-def builder_video_processing_choose_keyboard():
-    builder = ReplyKeyboardBuilder()
-    builder.button(text="To make a video note")
-    builder.button(text="To make a voice message")
-
-    return builder.as_markup(resize_keyboard=True)
-
-
-
 async def main():
     logging.basicConfig(level=logging.INFO)
     bot_token = config('BOT_TOKEN')

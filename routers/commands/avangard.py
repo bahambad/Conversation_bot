@@ -11,7 +11,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from modules.avangard_defs import avangard_video, is_number
 from states import Avangard
 
-router = Router(name = __name__)
+router = Router(name=__name__)
 
 # Функция Авангарда
 @router.message(Command("avangard"))
