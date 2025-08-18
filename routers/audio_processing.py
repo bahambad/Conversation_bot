@@ -159,7 +159,7 @@ The file is too big. Please upload a file smaller than <b>20 MB</b>."""
     os.makedirs("downloads", exist_ok=True)
 
     # Скачиваем файл
-    await bot.download_file(file_path, destination=local_filename)
+    await message.bot.download_file(file_path, destination=local_filename)
 
 
 
