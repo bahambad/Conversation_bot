@@ -4,6 +4,8 @@ import logging
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from decouple import config
 from aiogram import Dispatcher, Bot
+
+from middlewares.antiflood import MessageThrottlingMiddleware
 # from config import bot
 
 from routers import router as main_router
@@ -11,7 +13,7 @@ from routers import router as main_router
 
 dp = Dispatcher()
 dp.include_router(main_router)
-
+dp.message.middleware(MessageThrottlingMiddleware())
 
 async def main():
     logging.basicConfig(level=logging.INFO)
