@@ -2,6 +2,10 @@
 .env
 .venv/
 .idea/
-__pycache__/
+**/__pycache__/
+*.py[cod]  # Игнорирует .pyc, .pyo, .pyd файлы
 backup/
 config.py
+
+*.log
+*.tmp
