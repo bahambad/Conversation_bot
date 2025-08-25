@@ -15,29 +15,23 @@ def download_video_from_youtube(url):
         ydlp_opts = {
             'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl':f'{output_path}/%(title)s.%(ext)s',
-            'noplaylist':True, #Только одно видео
+            'merge_output_format': 'mp4',  # Объединяет видео и аудио в MP4
+            'noplaylist': True,  # Только одно видео
             'progress_hooks': [record_filename],  # Хук для сохранения пути
         }
-
-
 
         print(f'Attending to download: {url}')
         with yt_dlp.YoutubeDL(ydlp_opts) as ydl:
             ydl.download([url])
         print(downloaded_files)
-        part_outpath = downloaded_files[0][:-4]
-        # if part_outpath[-1] == '.':
-        #     while part_outpath[-1] == '.':
-        #         part_outpath = part_outpath[:-1]
-        full_outpath = part_outpath + ".mp4"
+        full_outpath = downloaded_files[0]
+        # [:-8] + "mp4"
         print(f'Success! Downloaded to {full_outpath}')
         return full_outpath
 
 
     except Exception as e:
         print(f"Ошибка! {str(e)}")
-        return False
-
 
 
 

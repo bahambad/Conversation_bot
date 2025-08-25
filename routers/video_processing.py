@@ -237,4 +237,3 @@ The file is too big. Please upload a file smaller than <b>20 MB</b>."""
 I didn’t understand your response — just reply with a word."""
         await message.answer(text=invalid_text,
                              parse_mode=ParseMode.HTML)
-        await state.clear()
