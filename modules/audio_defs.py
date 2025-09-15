@@ -5,16 +5,6 @@ import ffmpeg
 
 # Функция для вытаскивания аудио из видео
 async def audio_from_video(input_path: str, output_path: str):
-    """
-    Добавляет к кружочку песенку AVANGARD.
-
-    Args:
-        input_path (str): Путь к входному видеофайлу.
-        output_path (str): Путь для сохранения обработанного видеофайла.
-
-    Raises:
-        ffmpeg.Error: Если FFmpeg возвращает ошибку во время обработки.
-    """
     # print("input_path:", input_path)
     print("exists:", os.path.exists(input_path))
 
