@@ -10,6 +10,3 @@ class Vtovoice(StatesGroup):
 
 class Video_processing(StatesGroup):
     choosing_option = State()
-
-class DownloadFromLink(StatesGroup):
-    choosing_type = State()
