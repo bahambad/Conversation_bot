@@ -3,10 +3,6 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 
-video_cb_data = "video_cb_data"
-audio_cb_data = "audio_cb_data"
-
-
 class UrlOfVideoCdData(CallbackData, prefix="url-video-str"):
     url_id: str
     operation: str

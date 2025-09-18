@@ -1,7 +1,7 @@
 from aiogram import Router, types
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
-from aiogram.types import LinkPreviewOptions
+from aiogram.types import LinkPreviewOptions, ReplyKeyboardRemove
 from aiogram.utils import markdown
 
 
@@ -21,10 +21,10 @@ Here you can easily convert:
 
 ❓ Type /help to learn how to use the bot.
 """
-    old_text = f"{markdown.hide_link(url)}Hello, <b>{message.from_user.full_name}</b>! Welcome to the Audio to voice conversion tool. 🔁 📄\nIn this bot, you can easily convert audio and video files into voice and video messages, respectively.\n\n\nType'\help' to find out how to use it."
-    await message.answer(text= hello_text,
+    await message.answer(text=hello_text,
                          parse_mode=ParseMode.HTML,
-                         link_preview_options= LinkPreviewOptions(
+                         reply_markup=ReplyKeyboardRemove(),
+                         link_preview_options=LinkPreviewOptions(
                              is_disabled=False,
                              url=url,
                              show_above_text=True,
@@ -40,11 +40,9 @@ async def handle_help(message: types.Message):
 🎬 <b>MP4 videos</b> → <i>Video notes</i>
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
-📤 Just upload your file and wait a moment while it's being converted.  
-<b>Note:</b> Videos must be shorter than <b>60 seconds</b>.
+📤 Just upload your file and pick an option you need.
+ℹ️ <b>Note:</b> If you want to create a <b>video note</b>, the video must be shorter than ⏱️ <b>60 seconds</b>.
 
-🛠️ Want to convert <b>video notes</b> to <b>voice messages</b>?  
-Use the command: /video_to_voice
 
 ⚠️ <b>ATTENTION!</b> Audio and video files must be under <b>20 MB</b>! ⚠️
 """

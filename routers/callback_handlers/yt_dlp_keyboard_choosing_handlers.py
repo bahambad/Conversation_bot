@@ -51,14 +51,14 @@ async def handle_audio_yt_dlp(call: CallbackQuery, callback_data: UrlOfVideoCdDa
             os.remove(outpath)
         except:
             error_text = f"""⛔️ <b>Failed to receive the file.</b>  
-        The file is too big. Please upload a file smaller than <b>20 MB</b>."""
+        The file is too big. It might be smaller than <b>20 MB</b>."""
             await message.answer(text=error_text,
                                  parse_mode=ParseMode.HTML)
             await msg.delete()
             return
     else:
         big_video_text = """⛔️ <b>Failed to receive the file.</b>  
-        The file is too big. Please upload a file smaller than <b>20 MB</b>."""
+        The file is too big. It might be smaller than <b>20 MB</b>."""
         await message.answer(text=big_video_text,
                                  parse_mode=ParseMode.HTML)
         await msg.delete()
