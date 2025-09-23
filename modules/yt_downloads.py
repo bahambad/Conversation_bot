@@ -8,7 +8,7 @@ def download_video_from_youtube(url):
     def record_filename(info):
         """Функция, которая сохраняет путь к скачанному файлу."""
         filepath = info.get("filename")
-        if filepath:
+        if info.get("status") == "finished":
             downloaded_files.append(filepath)
 
     try:
@@ -25,9 +25,14 @@ def download_video_from_youtube(url):
             ydl.download([url])
         print(downloaded_files)
         full_outpath = downloaded_files[0]
+        final_outpath = full_outpath
+        if '.f136' in full_outpath or '.webm' in full_outpath or '.m4a' in full_outpath:
+            final_outpath = final_outpath.replace('.f136', '')
+            final_outpath = final_outpath.replace('.webm', '.mp4')
+            final_outpath = final_outpath.replace('.m4a', '.mp4')
         # [:-8] + "mp4"
-        print(f'Success! Downloaded to {full_outpath}')
-        return full_outpath
+        print(f'Success! Downloaded to {final_outpath}')
+        return final_outpath
 
 
     except Exception as e:
@@ -62,9 +67,15 @@ def download_audio_from_youtube(url):
         print(f'Attending to download: {url}')
         with yt_dlp.YoutubeDL(ydlp_opts) as ydl:
             ydl.download([url])
-        full_outpath = downloaded_files[0][:-4] + ".mp3"
+        # full_outpath = downloaded_files[0][:-4] + ".mp3"
+        full_outpath = downloaded_files[0]
+        final_outpath = full_outpath
+        if '.f136' in full_outpath or '.webm' in full_outpath or '.m4a' in full_outpath:
+            final_outpath = final_outpath.replace('.f136', '')
+            final_outpath = final_outpath.replace('.webm', '.mp3')
+            final_outpath = final_outpath.replace('.m4a', '.mp3')
         print(f'Success! Downloaded to {full_outpath}')
-        return full_outpath
+        return final_outpath
 
 
     except Exception as e:
