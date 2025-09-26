@@ -27,7 +27,7 @@ async def handle_audio_yt_dlp(call: CallbackQuery, callback_data: UrlOfVideoCdDa
         chat_id=message.chat.id,
         action=ChatAction.UPLOAD_DOCUMENT,
     )
-    if check_video_size(url, 1080, max_size_mb=20):
+    if check_video_size(url, 1080, is_audio=True, max_size_mb=20):
         try:
             outpath = download_audio_from_youtube(url)
             if outpath == False:
@@ -81,7 +81,7 @@ async def handle_video_yt_dlp(call: CallbackQuery, callback_data: UrlOfVideoCdDa
         chat_id=message.chat.id,
         action=ChatAction.UPLOAD_VIDEO,
     )
-    size_okay = check_video_size(url, 1080, max_size_mb=20)
+    size_okay = check_video_size(url, 1080, is_audio=False, max_size_mb=20)
     if size_okay:
         try:
             outpath = download_video_from_youtube(url)

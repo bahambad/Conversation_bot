@@ -84,9 +84,12 @@ def download_audio_from_youtube(url):
 
 
 #Проверка размера видео
-def check_video_size(url,max_limit_qual,  max_size_mb=20):
+def check_video_size(url,max_limit_qual,is_audio,  max_size_mb=20):
+    format_text = f'bestvideo[height<={max_limit_qual}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+    if is_audio:
+        format_text = 'bestaudio/best'
     ydl_opts = {
-        'format': f'bestvideo[height<={max_limit_qual}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': format_text,
         'quiet': True,  # не выводить лишние сообщения
         'no_warnings': True,  # отключить предупреждения
     }
@@ -97,10 +100,12 @@ def check_video_size(url,max_limit_qual,  max_size_mb=20):
 
             # Получаем размер в байтах (если доступен)
             filesize = info.get('filesize') or info.get('filesize_approx')
+            video_duration = info.get('duration', 0)
 
             if filesize is None:
-                print("Не удалось определить размер видео.")
-                return False
+                # print("Не удалось определить размер видео.")
+                # return False
+                filesize = video_duration * 204800 / 8 #128*1000*1.6 Почему-то настоящий размер всегда больше в 1.5 поэтому я умножаю на 1.6 на запас
 
             filesize_mb = filesize / (1024 * 1024)  # Переводим в мегабайты
 
