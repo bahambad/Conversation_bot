@@ -74,6 +74,7 @@ def download_audio_from_youtube(url):
             final_outpath = final_outpath.replace('.f136', '')
             final_outpath = final_outpath.replace('.webm', '.mp3')
             final_outpath = final_outpath.replace('.m4a', '.mp3')
+        final_outpath = final_outpath[:-4] + ".mp3"
         print(f'Success! Downloaded to {full_outpath}')
         return final_outpath
 
