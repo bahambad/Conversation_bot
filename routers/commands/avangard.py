@@ -98,7 +98,9 @@ async def avangard_note(message: types.VideoNote, state:FSMContext):
         song_number = 0
 
     volume_parameter = data["volume_num"]
-    audio_path = rf"/home/babah/ConvertationBot/audio/{songs[song_number]}.mp3"
+    # audio_path = rf"C:\Users\bahamax\PycharmProjects\ConvertationBot\audio\{songs[song_number]}.mp3"
+    audio_path = rf"../../audio/{songs[song_number]}.mp3"
+    #    audio_path = rf"/home/babah/ConvertationBot/audio/{songs[song_number]}.mp3"
     action_sender = ChatActionSender(
         bot=message.bot,
         chat_id=message.chat.id,
