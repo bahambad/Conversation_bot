@@ -3,17 +3,13 @@ from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import LinkPreviewOptions, ReplyKeyboardRemove
 from aiogram.utils import markdown
-from aiogram.utils.deep_linking import create_start_link
-from aiogram.utils.payload import decode_payload
 
 router = Router(name=__name__)
 
 # Функция старта
-@router.message(CommandStart(deep_link=True))
-async def handle_start(message: types.Message, command: CommandObject):
-    # args = command.args
-    # payload = decode_payload(args)
-    # await message.answer(payload)
+@router.message(CommandStart()) # Не работает. Убрал вручную на серваке
+async def handle_start(message: types.Message):
+
     url ="https://sdmntpreastus2.oaiusercontent.com/files/00000000-60cc-51f6-9d6b-4c8d1e75ceac/raw?se=2025-04-05T14%3A13%3A54Z&sp=r&sv=2024-08-04&sr=b&scid=0dd2fe23-ebd7-5f9e-8874-d61e7e1e10ba&skoid=3f3a9132-9530-48ef-96b7-fee5a811733f&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-04-05T08%3A07%3A23Z&ske=2025-04-06T08%3A07%3A23Z&sks=b&skv=2024-08-04&sig=fTrYnU6l%2BLQVSzlNgFfmAmHuNkpq5rh0EGR4E5wjmic%3D"
     hello_text = f"""{markdown.hide_link(url)}👋 Hello, <b>{message.from_user.full_name}</b>!  
 🎧 Welcome to the <b>Audio & Video Conversion Bot</b> 🔁

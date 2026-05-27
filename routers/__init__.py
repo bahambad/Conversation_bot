@@ -7,10 +7,12 @@ from .callback_handlers import router as callback_router
 from .not_processing import router as not_processing_router
 from .audio_processing import router as audio_processing_router
 from .video_processing import router as video_processing_router
+from .ban import Router as ban_router
 
 router = Router(name=__name__)
 
 router.include_routers(
+ban_router,
     callback_router,
     commands_router,
     audio_processing_router,
