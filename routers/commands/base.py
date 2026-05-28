@@ -16,7 +16,7 @@ async def handle_start(message: types.Message):
 
 Here you can easily convert:  
 🎵 <b>Audio files</b> → <i>Voice messages</i>  
-🎬 <b>Video files</b> → <i>Video notes</i>
+🎬 <b>Video files</b> → <i>Video notes</i> (temporarily unavailable)
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 ❓ Type /help to learn how to use the bot.
@@ -37,7 +37,7 @@ Here you can easily convert:
 async def handle_help(message: types.Message):
     help_text = """🔄 This bot converts:  
 🎵 <b>MP3 audio files</b> → <i>Voice messages</i>  
-🎬 <b>MP4 videos</b> → <i>Video notes</i>
+🎬 <b>MP4 videos</b> → <i>Video notes</i> (temporarily unavailable)
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 📤 Just upload your file and pick an option you need.

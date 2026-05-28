@@ -10,10 +10,10 @@ class VideoCdData(CallbackData, prefix="video-proces-str"):
 
 def builder_video_processing_kb_cb(file_id, is_video) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    if is_video:
-        builder.button(text="🎥 Video note",
-                       callback_data=VideoCdData(operation="note", file_id=file_id).pack(),
-                       )
+    # if is_video:
+    #     builder.button(text="🎥 Video note",
+    #                    callback_data=VideoCdData(operation="note", file_id=file_id).pack(),
+    #                    ) #Временно недоступно
     builder.button(text="🎤 Voice message",
                    callback_data=VideoCdData(operation="voice", file_id=file_id).pack(),
                    )
