@@ -16,8 +16,11 @@ ban_list = []
 @admin_router.message(Command("ban"))
 async def ban_command(message: types.Message):
     ban_user = int(message.text.split(' ', 1)[1])
-    ban_list.append(ban_user)
-    await message.answer(f"User {ban_user} is banned! >:))")
+    if ban_user != admin_id:
+        ban_list.append(ban_user)
+        await message.answer(f"User {ban_user} is banned! >:))")
+    else:
+        await message.answer("You can't ban yourself dumbo")
 
 
 @admin_router.message(Command("unban"))
