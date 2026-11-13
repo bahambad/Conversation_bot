@@ -1,19 +1,22 @@
 import asyncio
 import logging
 
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from decouple import config
 from aiogram import Dispatcher, Bot
 
-from middlewares.antiflood import MessageThrottlingMiddleware
-# from config import bot
+from middlewares.antiflood import ThrottlingMiddleware
 
 from routers import router as main_router
 
 
 dp = Dispatcher()
 dp.include_router(main_router)
-dp.message.middleware(MessageThrottlingMiddleware())
+
+# Один экземпляр на сообщения и на кнопки: тяжёлые операции запускаются именно кнопками
+throttling = ThrottlingMiddleware()
+dp.message.outer_middleware(throttling)
+dp.callback_query.outer_middleware(throttling)
+
 
 async def main():
     logging.basicConfig(level=logging.INFO)
