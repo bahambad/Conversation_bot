@@ -8,11 +8,9 @@ from aiogram.types import CallbackQuery
 from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.yt_dlp_keyboard import UrlOfVideoCdData
-from modules.errors import ProcessingError
 from modules.jobs import heavy_job, job_dir, report_errors
-from modules.thumbnails import make_audio_cover
 from modules.yt_downloads import download_media
-from routers.callback_handlers.common import claim_entry
+from routers.callback_handlers.common import claim_entry, send_downloaded_audio
 from routers.video_processing import url_storage
 
 router = Router(name=__name__)
@@ -48,18 +46,10 @@ async def process_url(call: CallbackQuery, callback_data: UrlOfVideoCdData, bot:
                         # yt-dlp блокирующий, поэтому выполняем его в отдельном потоке
                         media = await asyncio.to_thread(download_media, entry.url, workdir, audio_only)
 
-                        file = types.FSInputFile(path=media.path, filename=media.filename)
                         if audio_only:
-                            cover = None
-                            if media.thumbnail is not None:
-                                # Обложка — приятное дополнение: без неё аудио всё равно отправляем
-                                cover_path = workdir / "cover.jpg"
-                                with suppress(ProcessingError):
-                                    await make_audio_cover(media.thumbnail, cover_path)
-                                    cover = types.FSInputFile(path=cover_path)
-                            await bot.send_audio(chat_id, audio=file, title=media.title,
-                                                 performer=media.performer, thumbnail=cover)
+                            await send_downloaded_audio(bot, chat_id, media, workdir)
                         else:
+                            file = types.FSInputFile(path=media.path, filename=media.filename)
                             await bot.send_video(chat_id, video=file)
             finally:
                 with suppress(TelegramAPIError):

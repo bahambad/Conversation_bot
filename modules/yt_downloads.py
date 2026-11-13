@@ -43,6 +43,9 @@ MAX_AVATAR_SIZE = 5 * 1024 * 1024
 
 # Фрагменты по таймкодам: максимальная длина, секунд
 MAX_FRAGMENT_DURATION = 300
+# Аудио легче видео, но YouTube отдаёт отрезок лишь примерно вдвое быстрее реального
+# времени, поэтому слишком длинные отрезки заняли бы очередь задач надолго
+MAX_AUDIO_FRAGMENT_DURATION = 600
 # Фрагмент ограничен лимитом Telegram на отправку файлов ботом (50 МБ), с небольшим запасом
 MAX_FRAGMENT_SIZE = 49 * 1024 * 1024
 FRAGMENT_TOO_BIG_TEXT = "⛔️ <b>The fragment is too big.</b>\nTry a shorter one."
@@ -122,7 +125,7 @@ def _estimate_size(info: dict, audio_only: bool) -> float | None:
     return total
 
 
-def _check_fragment(info: dict, time_range: tuple[int, int], max_size: int) -> None:
+def _check_fragment(info: dict, time_range: tuple[int, int], max_size: int, audio_only: bool) -> None:
     """Проверяет, что отрезок попадает в видео и по оценке укладывается в лимит размера."""
     start, end = time_range
     duration = info.get('duration')
@@ -132,10 +135,15 @@ def _check_fragment(info: dict, time_range: tuple[int, int], max_size: int) -> N
         )
     length = (min(end, duration) if duration else end) - start
 
-    # Оценка по битрейту выбранных форматов. Она приблизительная (фрагмент
-    # перекодируется), поэтому итоговый файл проверяется ещё раз после скачивания.
-    bitrates = [fmt.get('tbr') for fmt in info.get('requested_formats') or [info]]
-    if all(bitrates) and sum(bitrates) * 1000 / 8 * length > max_size:
+    if audio_only:
+        # Аудио конвертируется в MP3 с известным битрейтом, размер считается точно
+        estimate = MP3_BITRATE * 1000 / 8 * length
+    else:
+        # Оценка по битрейту выбранных форматов. Она приблизительная (фрагмент
+        # перекодируется), поэтому итоговый файл проверяется ещё раз после скачивания.
+        bitrates = [fmt.get('tbr') for fmt in info.get('requested_formats') or [info]]
+        estimate = sum(bitrates) * 1000 / 8 * length if all(bitrates) else 0
+    if estimate > max_size:
         raise MediaTooBigError(FRAGMENT_TOO_BIG_TEXT)
 
 
@@ -151,7 +159,7 @@ def _check_info(info: dict | None, audio_only: bool, max_size: int,
 
     if time_range is not None:
         # Для фрагмента важен размер отрезка, а не всего видео
-        _check_fragment(info, time_range, max_size)
+        _check_fragment(info, time_range, max_size, audio_only)
         return
 
     size = _estimate_size(info, audio_only)
@@ -292,10 +300,13 @@ def download_media(url: str, workdir: Path, audio_only: bool,
     if time_range is not None:
         # Отрезок скачивает FFmpeg прямо с сайта. progress_hook при этом вызывается
         # только по завершении, поэтому объём ограничен длиной отрезка и проверкой результата.
-        ydl_opts['format'] = FRAGMENT_FORMAT
         ydl_opts['download_ranges'] = download_range_func(None, [time_range])
-        ydl_opts['force_keyframes_at_cuts'] = True  # точные границы вместо ближайших ключевых кадров
-        ydl_opts['external_downloader_args'] = {'ffmpeg_o': FRAGMENT_ENCODER_ARGS}
+        # Перекодирование при скачивании даёт точные границы. Без него отрезок начинается
+        # с ближайшей опорной точки потока: у аудио YouTube это до 10 лишних секунд.
+        ydl_opts['force_keyframes_at_cuts'] = True
+        if not audio_only:
+            ydl_opts['format'] = FRAGMENT_FORMAT
+            ydl_opts['external_downloader_args'] = {'ffmpeg_o': FRAGMENT_ENCODER_ARGS}
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -329,6 +340,6 @@ def download_media(url: str, workdir: Path, audio_only: bool,
         path=result,
         filename=f"{filename or 'media'}{result.suffix}",
         title=title,
-        performer=(info.get('channel') or info.get('uploader')) if audio_only else None,
+        performer=((info.get('channel') or info.get('uploader') or '').strip() or None) if audio_only else None,
         thumbnail=thumbnail,
     )

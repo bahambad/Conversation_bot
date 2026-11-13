@@ -23,10 +23,14 @@ def builder_video_processing_cb(url_id, allow_fragment: bool = False) -> InlineK
     builder.button(text="🎵 Audio",
                    callback_data=UrlOfVideoCdData(url_id=url_id, operation="audio").pack(),
                    )
-    # Экспериментальная функция: скачивание фрагмента по таймкодам, кнопку видит только админ
+    # Экспериментальная функция: скачивание фрагмента по таймкодам, кнопки видит только админ.
+    # Второй ряд повторяет первый: видео слева, аудио справа.
     if allow_fragment:
-        builder.button(text="✂️ Fragment",
+        builder.button(text="✂️ Video part",
                        callback_data=UrlOfVideoCdData(url_id=url_id, operation="fragment").pack(),
+                       )
+        builder.button(text="✂️ Audio part",
+                       callback_data=UrlOfVideoCdData(url_id=url_id, operation="fragment_audio").pack(),
                        )
     builder.adjust(2)
 
