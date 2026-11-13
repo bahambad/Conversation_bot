@@ -59,14 +59,49 @@ async def handle_video(message: types.Message):
                          )
 
 
+def _extract_links(message: types.Message) -> dict | bool:
+    """
+    Фильтр: находит ссылки в любом месте текста сообщения.
+
+    Telegram сам размечает ссылки в тексте, поэтому сообщение вида
+    «скачай вот это https://...» обрабатывается так же, как голая ссылка.
+    """
+    text = message.text or ""
+    links = []
+    for entity in message.entities or []:
+        if entity.type == "url":
+            link = entity.extract_from(text)
+        elif entity.type == "text_link":
+            link = entity.url
+        else:
+            continue
+        # Ссылки без схемы («youtube.com/...») Telegram тоже считает ссылками
+        if "://" not in link:
+            link = "https://" + link
+        links.append(link)
+
+    if not links and text.strip().startswith("https://"):
+        links.append(text)
+    return {"links": links} if links else False
+
+
 # Функция скачивания видео или аудио по ссылке
-@router.message(F.text.startswith("https://"))
-async def download_video_or_audio(message: types.Message):
-    # Принимаем только одиночные ссылки на разрешённые сайты
-    try:
-        url = validate_url(message.text)
-    except UnsupportedUrlError as e:
-        await message.answer(text=e.text, parse_mode=ParseMode.HTML)
+@router.message(F.text, _extract_links)
+async def download_video_or_audio(message: types.Message, links: list[str]):
+    # Берём первую ссылку на разрешённый сайт
+    url = None
+    error = None
+    for link in links:
+        try:
+            url = validate_url(link)
+            break
+        except UnsupportedUrlError as e:
+            error = error or e
+
+    if url is None:
+        # В группах на посторонние ссылки не реагируем, чтобы не засорять чат
+        if message.chat.type == "private":
+            await message.answer(text=error.text, parse_mode=ParseMode.HTML)
         return
 
     url_id = url_storage.put(UrlEntry(url=url, user_id=message.from_user.id))
