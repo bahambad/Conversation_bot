@@ -20,6 +20,7 @@ class FileEntry:
     file_id: str
     file_size: int | None
     user_id: int
+    duration: int | None = None
 
 
 @dataclass
@@ -49,6 +50,7 @@ async def handle_video(message: types.Message):
         file_id=media.file_id,
         file_size=media.file_size,
         user_id=message.from_user.id,
+        duration=media.duration,
     ))
 
     await message.answer(text="Okay! What would you like to do with this video? 🎬",

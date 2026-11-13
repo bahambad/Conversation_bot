@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery
 from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.video_processing_keyboard import VideoCdData
-from modules.audio_defs import audio_from_video
+from modules.audio_defs import audio_from_video, voice_from_media
 from modules.jobs import download_tg_file, heavy_job, job_dir, report_errors
 from modules.permissions import can_make_video_notes
 from modules.video_defs import crop_video_to_square
@@ -62,9 +62,10 @@ async def process_video(call: CallbackQuery, callback_data: VideoCdData, bot: Bo
                             await crop_video_to_square(source_path, output_path)
                             await bot.send_video_note(chat_id, video_note=types.FSInputFile(path=output_path))
                         elif operation == "voice":
-                            output_path = workdir / "voice.mp3"
-                            await audio_from_video(source_path, output_path)
-                            await bot.send_voice(chat_id, voice=types.FSInputFile(path=output_path))
+                            output_path = workdir / "voice.ogg"
+                            await voice_from_media(source_path, output_path)
+                            await bot.send_voice(chat_id, voice=types.FSInputFile(path=output_path),
+                                                 duration=entry.duration)
                         else:
                             output_path = workdir / "audio.mp3"
                             await audio_from_video(source_path, output_path)
