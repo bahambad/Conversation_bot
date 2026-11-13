@@ -1,4 +1,3 @@
-import uuid
 from dataclasses import dataclass
 
 from aiogram import Router, F, types
@@ -6,9 +5,10 @@ from aiogram.enums import ParseMode
 
 from keyboards.video_processing_keyboard import builder_video_processing_kb_cb
 from keyboards.yt_dlp_keyboard import builder_video_processing_cb
-from modules.errors import FileTooBigError
+from modules.errors import FileTooBigError, UnsupportedUrlError
 from modules.jobs import MAX_FILE_SIZE
 from modules.storage import TTLStore
+from modules.yt_downloads import validate_url
 
 
 router = Router(name=__name__)
@@ -21,10 +21,15 @@ class FileEntry:
     user_id: int
 
 
-# dict of urls (tmp)
-url_storage = {}
-# Файлы, ожидающие выбора операции на inline-клавиатуре
+@dataclass
+class UrlEntry:
+    url: str
+    user_id: int
+
+
+# Файлы и ссылки, ожидающие выбора операции на inline-клавиатуре
 file_id_storage: TTLStore[FileEntry] = TTLStore()
+url_storage: TTLStore[UrlEntry] = TTLStore()
 
 
 # Функция постоянной конвертации Видео в Кружки
@@ -53,14 +58,16 @@ async def handle_video(message: types.Message):
 # Функция скачивания видео или аудио по ссылке
 @router.message(F.text.startswith("https://"))
 async def download_video_or_audio(message: types.Message):
-    text = """Okay! What would you like to download?"""
+    # Принимаем только одиночные ссылки на разрешённые сайты
+    try:
+        url = validate_url(message.text)
+    except UnsupportedUrlError as e:
+        await message.answer(text=e.text, parse_mode=ParseMode.HTML)
+        return
 
-    # генерируем уникальный id
-    url_id = str(uuid.uuid4())
-    # сохраняем ссылку в словарь
-    url_storage[url_id] = message.text
+    url_id = url_storage.put(UrlEntry(url=url, user_id=message.from_user.id))
 
-    await message.answer(text=text,
+    await message.answer(text="Okay! What would you like to download?",
                          parse_mode=ParseMode.HTML,
                          reply_markup=builder_video_processing_cb(url_id=url_id),
                          )

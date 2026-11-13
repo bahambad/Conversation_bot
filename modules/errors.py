@@ -25,3 +25,17 @@ class VideoTooLongError(UserFacingError):
 
 class UserBusyError(UserFacingError):
     text = "⏳ Your previous request is still being processed. Please wait until it's finished."
+
+
+class UnsupportedUrlError(UserFacingError):
+    text = "⛔️ <b>This link is not supported.</b>"
+
+
+class MediaTooBigError(UserFacingError):
+    text = ("⛔️ <b>The media is too big.</b>\n"
+            "I can only download files smaller than <b>20 MB</b>.")
+
+
+class MediaDownloadError(UserFacingError):
+    text = ("⛔️ <b>I can't download it.</b>\n"
+            "The link may be private, unavailable or not supported.")
