@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.*
+.venv/
+.idea/
+**/__pycache__/
+*.py[cod]
+downloads/
+backup/
+*.log
+*.tmp
+Dockerfile
+.dockerignore
