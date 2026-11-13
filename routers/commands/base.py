@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
 from modules.paths import PICTURES_DIR
-from modules.permissions import can_make_video_notes
+from modules.permissions import is_privileged
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ router = Router(name=__name__)
 
 
 def _video_note_status(user_id: int) -> str:
-    """Пометка к строке про кружочки: они доступны только пользователям из VIDEO_NOTE_USERS."""
-    return "" if can_make_video_notes(user_id) else " (temporarily unavailable)"
+    """Пометка к строке про кружочки: они доступны только привилегированным пользователям (PRIVILEGED_USERS)."""
+    return "" if is_privileged(user_id) else " (temporarily unavailable)"
 
 
 # Функция старта

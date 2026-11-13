@@ -9,10 +9,10 @@ Built with [aiogram 3](https://docs.aiogram.dev/), [FFmpeg](https://ffmpeg.org/)
 |---|---|
 | An audio file | A voice message |
 | A video or a video note | A voice message or an MP3 file (you choose with a button) |
-| A video (allowed users only) | A video note |
+| A video (privileged users only) | A video note |
 | An `https://` link to a supported site | The video (MP4) or its audio (MP3) |
 | `/avangard`, then a video note | The same video note with a song mixed in |
-| `/avangard`, then a video (allowed users only) | The video cropped to a video note, with a song mixed in |
+| `/avangard`, then a video (privileged users only) | The video cropped to a video note, with a song mixed in |
 
 Audio downloaded by link is sent with the channel name as the performer and the video thumbnail as the cover
 (the channel avatar is used when there is no thumbnail).
@@ -25,7 +25,7 @@ Voice messages are not processed: the bot replies with a hint.
 |---|---|
 | `/start` | Greeting |
 | `/help` | Short usage guide |
-| `/avangard` | Add one of the bundled songs to a video note: the bot asks for the volume, the song number and then the video note (or a video, for allowed users) |
+| `/avangard` | Add one of the bundled songs to a video note: the bot asks for the volume, the song number and then the video note (or a video, for privileged users) |
 | `/cancel` | Leave the current `/avangard` dialog |
 | `/ban <user_id>` | Admin only. Block a user |
 | `/unban <user_id>` | Admin only. Unblock a user |
@@ -54,7 +54,7 @@ cp env.example .env
 |---|---|---|
 | `BOT_TOKEN` | yes | Bot token from [@BotFather](https://t.me/BotFather) |
 | `ADMIN` | yes | Numeric Telegram id of the admin |
-| `VIDEO_NOTE_USERS` | no | Comma separated ids of the "allowed users": they may turn videos into video notes. Empty by default: nobody can |
+| `PRIVILEGED_USERS` | no | Comma separated ids of privileged users. They get the features that are not open to everyone because of server load or abuse risk; currently that is turning videos into video notes. Empty by default |
 | `ALLOWED_DOMAINS` | no | Comma separated sites that links may point to. Replaces the built-in list (see below) |
 
 Built-in list of sites for downloading by link (subdomains included): `youtube.com`, `youtu.be`, `tiktok.com`,

@@ -10,7 +10,7 @@ class VideoCdData(CallbackData, prefix="video-proces-str"):
 
 def builder_video_processing_kb_cb(file_id, allow_note: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    # Кружочки доступны только пользователям из VIDEO_NOTE_USERS и только для обычных видео
+    # Кружочки доступны только привилегированным пользователям (PRIVILEGED_USERS) и только для обычных видео
     if allow_note:
         builder.button(text="🎥 Video note",
                        callback_data=VideoCdData(operation="note", file_id=file_id).pack(),

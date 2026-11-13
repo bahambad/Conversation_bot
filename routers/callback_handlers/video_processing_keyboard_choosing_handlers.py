@@ -9,7 +9,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from keyboards.video_processing_keyboard import VideoCdData
 from modules.audio_defs import audio_from_video, voice_from_media
 from modules.jobs import download_tg_file, heavy_job, job_dir, report_errors
-from modules.permissions import can_make_video_notes
+from modules.permissions import is_privileged
 from modules.video_defs import crop_video_to_square
 from routers.callback_handlers.common import claim_entry
 from routers.video_processing import file_id_storage
@@ -36,7 +36,7 @@ async def process_video(call: CallbackQuery, callback_data: VideoCdData, bot: Bo
     keyboard_message_id = call.message.message_id
 
     # Кнопки кружка у остальных пользователей нет, но callback_data можно подделать — проверяем ещё раз
-    if operation == "note" and not can_make_video_notes(user_id):
+    if operation == "note" and not is_privileged(user_id):
         await call.answer(NOTE_FORBIDDEN_TEXT, show_alert=True)
         return
 

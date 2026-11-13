@@ -10,7 +10,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from modules.avangard_defs import avangard_video, is_number
 from modules.jobs import download_tg_file, heavy_job, job_dir, report_errors
 from modules.paths import AUDIO_DIR
-from modules.permissions import can_make_video_notes
+from modules.permissions import is_privileged
 from modules.video_defs import crop_video_to_square
 from states import Avangard
 
@@ -28,7 +28,7 @@ WAITING_TEXT = "✅ I got it.\nPlease wait a moment..."
 
 def _accepted_media(user_id: int) -> str:
     """Что можно прислать на последнем шаге: видео принимается только от тех, кому разрешены кружочки."""
-    if can_make_video_notes(user_id):
+    if is_privileged(user_id):
         return "<b>video note</b> or a <b>video</b>"
     return "<b>video note</b>"
 
@@ -36,7 +36,7 @@ def _accepted_media(user_id: int) -> str:
 def _is_avangard_media(message: types.Message) -> bool:
     if message.video_note is not None:
         return True
-    return message.video is not None and can_make_video_notes(message.from_user.id)
+    return message.video is not None and is_privileged(message.from_user.id)
 
 
 # Функция Авангарда
