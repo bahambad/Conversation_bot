@@ -14,6 +14,9 @@ Built with [aiogram 3](https://docs.aiogram.dev/), [FFmpeg](https://ffmpeg.org/)
 | `/avangard`, then a video note | The same video note with a song mixed in |
 | `/avangard`, then a video (allowed users only) | The video cropped to a video note, with a song mixed in |
 
+Audio downloaded by link is sent with the channel name as the performer and the video thumbnail as the cover
+(the channel avatar is used when there is no thumbnail).
+
 Voice messages are not processed: the bot replies with a hint.
 
 ### Commands
