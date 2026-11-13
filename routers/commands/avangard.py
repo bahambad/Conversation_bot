@@ -22,6 +22,8 @@ INVALID_NUMBER_TEXT = """🔢 <b>Please send a number.</b>
 I didn’t understand your response — just reply with a valid number."""
 INVALID_VOLUME_TEXT = f"""🔢 <b>Please send a number from 0 to {MAX_VOLUME}.</b>"""
 WAITING_TEXT = "✅ I got it.\nPlease wait a moment..."
+WAITING_FOR_VIDEO_TEXT = """📹 <b>Please send a video note or a video.</b>
+Send /cancel to stop."""
 
 
 # Функция Авангарда
@@ -75,7 +77,7 @@ async def song(message: types.Message, state: FSMContext):
     await state.set_state(Avangard.transforming)
     await state.update_data(song_num=int(message.text))
     song_text = """✅ Okay, I got it.  
-📹 Now send me a <b>video note</b> and I'll add the song to it."""
+📹 Now send me a <b>video note</b> or a <b>video</b> and I'll add the song to it."""
     await message.answer(text=song_text, parse_mode=ParseMode.HTML)
 
 
@@ -84,33 +86,45 @@ async def invalid_song(message: types.Message):
     await message.answer(text=INVALID_NUMBER_TEXT, parse_mode=ParseMode.HTML)
 
 
-@router.message(F.video_note, Avangard.transforming)
+# Принимаем и кружок, и обычное видео: результат возвращается в том же виде, в каком пришёл
+@router.message(Avangard.transforming, F.video_note | F.video)
 async def avangard_note(message: types.Message, state: FSMContext, bot: Bot):
+    media = message.video_note or message.video
+    is_note = message.video_note is not None
     data = await state.get_data()
     # Номер песни ограничиваем диапазоном списка
     song_number = min(max(data["song_num"] - 1, 0), len(SONGS) - 1)
     volume_parameter = data["volume_num"]
     audio_path = AUDIO_DIR / f"{SONGS[song_number]}.mp3"
     chat_id = message.chat.id
+    action = ChatAction.UPLOAD_VIDEO_NOTE if is_note else ChatAction.UPLOAD_VIDEO
 
     async with report_errors(bot, chat_id):
         async with heavy_job(message.from_user.id):
             waiting_message = await message.answer(text=WAITING_TEXT, parse_mode=ParseMode.HTML)
             try:
                 with job_dir() as workdir:
-                    async with ChatActionSender(bot=bot, chat_id=chat_id, action=ChatAction.UPLOAD_VIDEO_NOTE):
+                    async with ChatActionSender(bot=bot, chat_id=chat_id, action=action):
                         source_path = workdir / "input.mp4"
                         output_path = workdir / "avangard.mp4"
-                        await download_tg_file(bot, message.video_note.file_id,
-                                               message.video_note.file_size, source_path)
+                        await download_tg_file(bot, media.file_id, media.file_size, source_path)
 
                         await avangard_video(source_path, output_path, audio_path, volume_parameter)
 
-                        # Отправляем обратно как video_note
-                        await message.answer_video_note(video_note=types.FSInputFile(path=output_path))
+                        result = types.FSInputFile(path=output_path)
+                        if is_note:
+                            await message.answer_video_note(video_note=result)
+                        else:
+                            await message.answer_video(video=result)
             finally:
                 with suppress(TelegramAPIError):
                     await waiting_message.delete()
 
-            # Состояние сбрасываем только после успеха: при ошибке кружок можно отправить ещё раз
+            # Состояние сбрасываем только после успеха: при ошибке видео можно отправить ещё раз
             await state.clear()
+
+
+# Всё остальное на этом шаге не должно уходить в другие обработчики
+@router.message(Avangard.transforming)
+async def invalid_avangard_media(message: types.Message):
+    await message.answer(text=WAITING_FOR_VIDEO_TEXT, parse_mode=ParseMode.HTML)
