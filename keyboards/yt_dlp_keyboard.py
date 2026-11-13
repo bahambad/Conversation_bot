@@ -15,7 +15,7 @@ def builder_video_processing_choose_keyboard():
 
     return builder.as_markup(resize_keyboard=True)
 
-def builder_video_processing_cb(url_id) -> InlineKeyboardMarkup:
+def builder_video_processing_cb(url_id, allow_fragment: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="🎬 Video",
                    callback_data=UrlOfVideoCdData(url_id=url_id, operation="video").pack(),
@@ -23,5 +23,11 @@ def builder_video_processing_cb(url_id) -> InlineKeyboardMarkup:
     builder.button(text="🎵 Audio",
                    callback_data=UrlOfVideoCdData(url_id=url_id, operation="audio").pack(),
                    )
+    # Экспериментальная функция: скачивание фрагмента по таймкодам, кнопку видит только админ
+    if allow_fragment:
+        builder.button(text="✂️ Fragment",
+                       callback_data=UrlOfVideoCdData(url_id=url_id, operation="fragment").pack(),
+                       )
+    builder.adjust(2)
 
     return builder.as_markup()

@@ -1,11 +1,11 @@
 from aiogram import Router, types
 from aiogram.filters import Command, CommandObject
-from decouple import config
+from modules.permissions import ADMIN_ID
 
 from ..filters.is_admin import IsAdmin
 
 
-admin_id = int(config('ADMIN'))
+admin_id = ADMIN_ID
 admin_router = Router(name="Admin Router")
 admin_router.message.filter(IsAdmin(admin_id))
 # Хранится только в памяти: после рестарта список намеренно очищается.

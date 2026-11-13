@@ -10,3 +10,7 @@ class Vtovoice(StatesGroup):
 
 class Video_processing(StatesGroup):
     choosing_option = State()
+
+
+class Fragment(StatesGroup):
+    timecodes = State()

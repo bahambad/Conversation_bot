@@ -7,7 +7,7 @@ from keyboards.video_processing_keyboard import builder_video_processing_kb_cb
 from keyboards.yt_dlp_keyboard import builder_video_processing_cb
 from modules.errors import FileTooBigError, UnsupportedUrlError
 from modules.jobs import MAX_FILE_SIZE
-from modules.permissions import can_make_video_notes
+from modules.permissions import can_make_video_notes, is_admin
 from modules.storage import TTLStore
 from modules.yt_downloads import validate_url
 
@@ -73,5 +73,6 @@ async def download_video_or_audio(message: types.Message):
 
     await message.answer(text="Okay! What would you like to download?",
                          parse_mode=ParseMode.HTML,
-                         reply_markup=builder_video_processing_cb(url_id=url_id),
+                         reply_markup=builder_video_processing_cb(url_id=url_id,
+                                                                  allow_fragment=is_admin(message.from_user.id)),
                          )

@@ -7,10 +7,11 @@ from urllib.parse import urlsplit
 
 import yt_dlp
 from decouple import Csv, config
-from yt_dlp.utils import sanitize_filename
+from yt_dlp.utils import download_range_func, sanitize_filename
 
 from modules.errors import MediaDownloadError, MediaTooBigError, UnsupportedUrlError
 from modules.jobs import MAX_FILE_SIZE
+from modules.timecodes import format_timecode
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,17 @@ MP3_BITRATE = 192
 IMAGE_SUFFIXES = ('.jpg', '.jpeg', '.png', '.webp')
 # Максимальный размер скачиваемой картинки аватара канала
 MAX_AVATAR_SIZE = 5 * 1024 * 1024
+
+# Фрагменты по таймкодам: максимальная длина, секунд
+MAX_FRAGMENT_DURATION = 300
+# Фрагмент ограничен лимитом Telegram на отправку файлов ботом (50 МБ), с небольшим запасом
+MAX_FRAGMENT_SIZE = 49 * 1024 * 1024
+FRAGMENT_TOO_BIG_TEXT = "⛔️ <b>The fragment is too big.</b>\nTry a shorter one."
+
+# Фрагмент перекодируется в H.264 (точные границы и воспроизведение на любых устройствах).
+# 720p и умеренное качество — чтобы в лимит помещалось несколько минут, а не секунды.
+FRAGMENT_FORMAT = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]/best'
+FRAGMENT_ENCODER_ARGS = ['-crf', '26', '-preset', 'veryfast', '-movflags', '+faststart']
 
 VIDEO_FORMAT = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
 AUDIO_FORMAT = 'bestaudio/best'
@@ -110,7 +122,25 @@ def _estimate_size(info: dict, audio_only: bool) -> float | None:
     return total
 
 
-def _check_info(info: dict | None, audio_only: bool, max_size: int) -> None:
+def _check_fragment(info: dict, time_range: tuple[int, int], max_size: int) -> None:
+    """Проверяет, что отрезок попадает в видео и по оценке укладывается в лимит размера."""
+    start, end = time_range
+    duration = info.get('duration')
+    if duration and start >= duration:
+        raise MediaDownloadError(
+            f"⛔️ <b>The start is beyond the end of the video</b> (it is {format_timecode(duration)} long)."
+        )
+    length = (min(end, duration) if duration else end) - start
+
+    # Оценка по битрейту выбранных форматов. Она приблизительная (фрагмент
+    # перекодируется), поэтому итоговый файл проверяется ещё раз после скачивания.
+    bitrates = [fmt.get('tbr') for fmt in info.get('requested_formats') or [info]]
+    if all(bitrates) and sum(bitrates) * 1000 / 8 * length > max_size:
+        raise MediaTooBigError(FRAGMENT_TOO_BIG_TEXT)
+
+
+def _check_info(info: dict | None, audio_only: bool, max_size: int,
+                time_range: tuple[int, int] | None = None) -> None:
     """Отклоняет плейлисты, трансляции и слишком большие файлы ещё до скачивания."""
     if not info:
         raise MediaDownloadError()
@@ -118,6 +148,11 @@ def _check_info(info: dict | None, audio_only: bool, max_size: int) -> None:
         raise UnsupportedUrlError("⛔️ <b>Playlists are not supported.</b>\nPlease send a link to a single video.")
     if info.get('is_live') or info.get('live_status') in ('is_live', 'is_upcoming'):
         raise UnsupportedUrlError("⛔️ <b>Live streams are not supported.</b>")
+
+    if time_range is not None:
+        # Для фрагмента важен размер отрезка, а не всего видео
+        _check_fragment(info, time_range, max_size)
+        return
 
     size = _estimate_size(info, audio_only)
     if size is not None:
@@ -194,12 +229,17 @@ def _fetch_channel_avatar(ydl: yt_dlp.YoutubeDL, info: dict, workdir: Path) -> P
 
 def download_media(url: str, workdir: Path, audio_only: bool,
                    max_size: int = MAX_FILE_SIZE,
-                   timeout: float = DOWNLOAD_TIMEOUT) -> DownloadedMedia:
+                   timeout: float = DOWNLOAD_TIMEOUT,
+                   time_range: tuple[int, int] | None = None) -> DownloadedMedia:
     """
     Скачивает видео (MP4) или аудио (MP3) по ссылке в папку workdir.
 
     Для аудио дополнительно возвращаются название канала и картинка для обложки:
     превью видео, а если его нет — аватар канала.
+
+    Если задан time_range (начало и конец в секундах), скачивается только этот
+    отрезок: остальная часть видео с сайта не загружается, поэтому исходное
+    видео может быть сколь угодно большим.
 
     Функция блокирующая — вызывать через asyncio.to_thread.
 
@@ -209,6 +249,7 @@ def download_media(url: str, workdir: Path, audio_only: bool,
         MediaDownloadError: скачать не удалось.
     """
     deadline = time.monotonic() + timeout
+    too_big_text = FRAGMENT_TOO_BIG_TEXT if time_range is not None else None
     downloaded: dict[str, int] = {}
 
     def progress_hook(status: dict) -> None:
@@ -248,18 +289,25 @@ def download_media(url: str, workdir: Path, audio_only: bool,
         }]
     else:
         ydl_opts['merge_output_format'] = 'mp4'  # Объединяет видео и аудио в MP4
+    if time_range is not None:
+        # Отрезок скачивает FFmpeg прямо с сайта. progress_hook при этом вызывается
+        # только по завершении, поэтому объём ограничен длиной отрезка и проверкой результата.
+        ydl_opts['format'] = FRAGMENT_FORMAT
+        ydl_opts['download_ranges'] = download_range_func(None, [time_range])
+        ydl_opts['force_keyframes_at_cuts'] = True  # точные границы вместо ближайших ключевых кадров
+        ydl_opts['external_downloader_args'] = {'ffmpeg_o': FRAGMENT_ENCODER_ARGS}
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            _check_info(info, audio_only, max_size)
+            _check_info(info, audio_only, max_size, time_range)
             ydl.extract_info(url, download=True)
 
             thumbnail = None
             if audio_only:
                 thumbnail = _find_thumbnail(workdir) or _fetch_channel_avatar(ydl, info, workdir)
     except _SizeLimitExceeded:
-        raise MediaTooBigError() from None
+        raise MediaTooBigError(too_big_text) from None
     except _DeadlineExceeded:
         raise MediaDownloadError("⛔️ <b>The download took too long</b> and was cancelled.") from None
     except yt_dlp.utils.DownloadError as e:
@@ -271,10 +319,12 @@ def download_media(url: str, workdir: Path, audio_only: bool,
         logger.error("yt-dlp finished without a result file")
         raise MediaDownloadError()
     if result.stat().st_size > max_size:
-        raise MediaTooBigError()
+        raise MediaTooBigError(too_big_text)
 
     title = info.get('title')
     filename = sanitize_filename(title or info.get('id') or 'media', restricted=False)[:100]
+    if time_range is not None:
+        filename += " [{}-{}]".format(*(format_timecode(t).replace(':', '.') for t in time_range))
     return DownloadedMedia(
         path=result,
         filename=f"{filename or 'media'}{result.suffix}",
