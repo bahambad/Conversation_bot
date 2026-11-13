@@ -1,245 +1,80 @@
-import os
-from random import randint
+from contextlib import suppress
 
-from aiogram import Router, types, F
+from aiogram import Bot, Router, types, F
 from aiogram.enums import ParseMode, ChatAction
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery
 from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.video_processing_keyboard import VideoCdData
 from modules.audio_defs import audio_from_video
+from modules.jobs import download_tg_file, heavy_job, is_busy, job_dir, report_errors
 from modules.video_defs import crop_video_to_square
 from routers.video_processing import file_id_storage
 
 router = Router(name=__name__)
 
+EXPIRED_TEXT = "⌛️ This button has expired. Please send the file again."
+NOT_YOURS_TEXT = "This button is for the person who sent the file."
+BUSY_ALERT_TEXT = "⏳ Your previous request is still being processed. Please wait."
+WAITING_TEXT = "✅ I got it.\nPlease wait a moment..."
 
-@router.callback_query(VideoCdData.filter(F.operation == "note"))
-async def video_for_note(call: CallbackQuery, callback_data: VideoCdData):
-    message = call.message
-    await call.answer()
-    await message.delete()
+# Какой статус показывать в чате, пока выполняется операция
+CHAT_ACTIONS = {
+    "note": ChatAction.UPLOAD_VIDEO_NOTE,
+    "voice": ChatAction.UPLOAD_VOICE,
+    "audio": ChatAction.UPLOAD_DOCUMENT,
+}
 
-    action_sender = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.UPLOAD_VIDEO_NOTE,
-    )
 
-    action_recorder = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.RECORD_VIDEO_NOTE,
-    )
+# Один обработчик на все операции с видео: кружок, голосовое сообщение, MP3
+@router.callback_query(VideoCdData.filter(F.operation.in_(set(CHAT_ACTIONS))))
+async def process_video(call: CallbackQuery, callback_data: VideoCdData, bot: Bot):
+    operation = callback_data.operation
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+    keyboard_message_id = call.message.message_id
 
-    async with action_recorder:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.RECORD_VIDEO_NOTE,
-        )
-
-    # Получаем объект файла
-    try:
-        file_id = file_id_storage.pop(callback_data.file_id, None)
-        file = await message.bot.get_file(file_id)
-    except:
-        error_text = (f"""⛔️ <b>Failed to receive the file.</b>  
-    The file is too big. Please upload a file smaller than <b>20 MB</b>."""
-                      # f"\nError: {e}"
-                      )
-        await message.answer(text=error_text,
-                             parse_mode=ParseMode.HTML)
+    entry = file_id_storage.get(callback_data.file_id)
+    if entry is None:
+        await call.answer(EXPIRED_TEXT, show_alert=True)
+        with suppress(TelegramAPIError):
+            await bot.delete_message(chat_id, keyboard_message_id)
         return
-
-    # Формируем путь для сохранения
-    file_path = file.file_path
-    local_filename = f"downloads/{file_id}.mp4"
-
-    # Формируем "соль" и добавляем её к имени конечного файла, чтобы не было никаких совпадений при множественном использовании в один момент времени
-    sault = randint(0, 50000)
-    output_path = local_filename[:-4] + f"{sault}.mp4"
-
-    # Убедимся, что папка существует
-    os.makedirs("downloads", exist_ok=True)
-
-    # Скачиваем файл
-    await message.bot.download_file(file_path,
-                                    destination=local_filename)
-
-    successfull = await crop_video_to_square(local_filename, output_path)
-    if successfull == False:
-        duration_text = """⛔️ The bot can <b>ONLY</b> process videos <b>SHORTER than 60 seconds!</b>"""
-        await message.answer(text=duration_text,
-                             parse_mode=ParseMode.HTML)
-        os.remove(local_filename)
+    if entry.user_id != user_id:
+        await call.answer(NOT_YOURS_TEXT, show_alert=True)
         return
-
-    waiting_text = """✅ I got it.  
-    Please wait a moment..."""
-    msg = await message.answer(text=waiting_text,
-                               parse_mode=ParseMode.HTML)
-
-    # Показываю что кружок уже загружается
-    async with action_sender:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.UPLOAD_VIDEO_NOTE,
-        )
-
-    # Отправляем обратно как video_note
-    await message.answer_video_note(video_note=types.FSInputFile(path=output_path))
-
-    await msg.delete()
-
-    # Удаляем файл
-    os.remove(local_filename)
-    os.remove(output_path)
-
-@router.callback_query(VideoCdData.filter(F.operation == "voice"))
-async def video_for_note(call: CallbackQuery, callback_data: VideoCdData):
-    message = call.message
-    await call.answer()
-    await message.delete()
-
-    action_sender = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.UPLOAD_VOICE,
-    )
-    action_recorder = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.RECORD_VOICE,
-    )
-    async with action_recorder:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.RECORD_VOICE,
-        )
-
-    # Получаем объект файла
-    try:
-        file_id = file_id_storage.pop(callback_data.file_id, None)
-        file = await message.bot.get_file(file_id)
-    except:
-        error_text = (f"""⛔️ <b>Failed to receive the file.</b>  
-    The file is too big. Please upload a file smaller than <b>20 MB</b>."""
-                      # f"\nError: {e}"
-                      )
-        await message.answer(text=error_text,
-                             parse_mode=ParseMode.HTML)
+    if is_busy(user_id):
+        # Кнопку не трогаем: ей можно будет воспользоваться, когда закончится предыдущая задача
+        await call.answer(BUSY_ALERT_TEXT, show_alert=True)
         return
+    file_id_storage.pop(callback_data.file_id)
 
-    # Формируем путь для сохранения
-    file_path = file.file_path
-    local_filename = f"downloads/{file_id}.mp4"
+    async with report_errors(bot, chat_id):
+        async with heavy_job(user_id):
+            await call.answer()
+            with suppress(TelegramAPIError):
+                await bot.delete_message(chat_id, keyboard_message_id)
 
-    # Формируем "соль" и добавляем её к имени конечного файла, чтобы не было никаких совпадений при множественном использовании в один момент времени
-    sault = randint(0, 50000)
-    output_path = local_filename[:-4] + f"{sault}.mp3"
+            waiting_message = await bot.send_message(chat_id, WAITING_TEXT, parse_mode=ParseMode.HTML)
+            try:
+                with job_dir() as workdir:
+                    async with ChatActionSender(bot=bot, chat_id=chat_id, action=CHAT_ACTIONS[operation]):
+                        source_path = workdir / "input.mp4"
+                        await download_tg_file(bot, entry.file_id, entry.file_size, source_path)
 
-    # Убедимся, что папка существует
-    os.makedirs("downloads", exist_ok=True)
-
-    # Скачиваем файл
-    await message.bot.download_file(file_path,
-                                    destination=local_filename
-                                    )
-
-    await audio_from_video(local_filename, output_path)
-
-    waiting_text = """✅ I got it.  
-    Please wait a moment..."""
-    msg = await message.answer(text=waiting_text,
-                               parse_mode=ParseMode.HTML)
-
-    # Показываю что кружок уже загружается
-    async with action_sender:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.UPLOAD_VOICE,
-        )
-
-    # Отправляем обратно как voice
-    await message.answer_voice(voice=types.FSInputFile(path=output_path))
-
-    await msg.delete()
-
-    # Удаляем файл
-    os.remove(local_filename)
-    os.remove(output_path)
-
-
-@router.callback_query(VideoCdData.filter(F.operation == "audio"))
-async def video_for_note(call: CallbackQuery, callback_data: VideoCdData):
-    message = call.message
-    await call.answer()
-    await message.delete()
-
-    action_sender = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.UPLOAD_DOCUMENT,
-    )
-    action_recorder = ChatActionSender(
-        bot=message.bot,
-        chat_id=message.chat.id,
-        action=ChatAction.RECORD_VOICE,
-    )
-    async with action_recorder:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.RECORD_VOICE,
-        )
-
-    # Получаем объект файла
-    try:
-        file_id = file_id_storage.pop(callback_data.file_id, None)
-        file = await message.bot.get_file(file_id)
-    except:
-        error_text = (f"""⛔️ <b>Failed to receive the file.</b>  
-        The file is too big. Please upload a file smaller than <b>20 MB</b>."""
-                      # f"\nError: {e}"
-                      )
-        await message.answer(text=error_text,
-                             parse_mode=ParseMode.HTML)
-        return
-
-    # Формируем путь для сохранения
-    file_path = file.file_path
-    local_filename = f"downloads/{file_id[:11]}.mp4"
-
-    # Формируем "соль" и добавляем её к имени конечного файла, чтобы не было никаких совпадений при множественном использовании в один момент времени
-    sault = randint(0, 50000)
-    output_path = local_filename[:-4] + f"{sault}.mp3"
-
-    # Убедимся, что папка существует
-    os.makedirs("downloads", exist_ok=True)
-
-    # Скачиваем файл
-    await message.bot.download_file(file_path,
-                                    destination=local_filename
-                                    )
-
-    await audio_from_video(local_filename, output_path)
-
-    waiting_text = """✅ I got it.  
-        Please wait a moment..."""
-    msg = await message.answer(text=waiting_text,
-                               parse_mode=ParseMode.HTML)
-
-    # Показываю что кружок уже загружается
-    async with action_sender:
-        await message.bot.send_chat_action(
-            chat_id=message.chat.id,
-            action=ChatAction.UPLOAD_DOCUMENT,
-        )
-
-    # Отправляем обратно как voice
-    await message.answer_audio(audio=types.FSInputFile(path=output_path))
-
-    await msg.delete()
-
-    # Удаляем файл
-    os.remove(local_filename)
-    os.remove(output_path)
+                        if operation == "note":
+                            output_path = workdir / "note.mp4"
+                            await crop_video_to_square(source_path, output_path)
+                            await bot.send_video_note(chat_id, video_note=types.FSInputFile(path=output_path))
+                        elif operation == "voice":
+                            output_path = workdir / "voice.mp3"
+                            await audio_from_video(source_path, output_path)
+                            await bot.send_voice(chat_id, voice=types.FSInputFile(path=output_path))
+                        else:
+                            output_path = workdir / "audio.mp3"
+                            await audio_from_video(source_path, output_path)
+                            await bot.send_audio(chat_id, audio=types.FSInputFile(path=output_path))
+            finally:
+                with suppress(TelegramAPIError):
+                    await waiting_message.delete()

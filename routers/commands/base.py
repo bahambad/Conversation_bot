@@ -5,6 +5,7 @@ from aiogram import Router, types
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import CommandStart, Command
+from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
 from modules.paths import PICTURES_DIR
@@ -47,6 +48,16 @@ Here you can easily convert:
         await message.answer(text=hello_text,
                              parse_mode=ParseMode.HTML,
                              reply_markup=ReplyKeyboardRemove())
+
+
+# Отмена текущего сценария (например, /avangard)
+@router.message(Command("cancel"))
+async def handle_cancel(message: types.Message, state: FSMContext):
+    if await state.get_state() is None:
+        await message.answer(text="Nothing to cancel.")
+        return
+    await state.clear()
+    await message.answer(text="❌ Cancelled.")
 
 
 # Функция помощи
