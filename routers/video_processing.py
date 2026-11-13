@@ -7,6 +7,7 @@ from keyboards.video_processing_keyboard import builder_video_processing_kb_cb
 from keyboards.yt_dlp_keyboard import builder_video_processing_cb
 from modules.errors import FileTooBigError, UnsupportedUrlError
 from modules.jobs import MAX_FILE_SIZE
+from modules.permissions import can_make_video_notes
 from modules.storage import TTLStore
 from modules.yt_downloads import validate_url
 
@@ -36,7 +37,8 @@ url_storage: TTLStore[UrlEntry] = TTLStore()
 @router.message(F.video_note | F.video)
 async def handle_video(message: types.Message):
     media = message.video_note or message.video
-    is_video = message.video is not None
+    # Кружок имеет смысл делать только из обычного видео и только тем, кому это разрешено
+    allow_note = message.video is not None and can_make_video_notes(message.from_user.id)
 
     # Bot API не отдаёт файлы больше 20 МБ, поэтому сообщаем об этом сразу
     if media.file_size is not None and media.file_size > MAX_FILE_SIZE:
@@ -51,7 +53,7 @@ async def handle_video(message: types.Message):
 
     await message.answer(text="Okay! What would you like to do with this video? 🎬",
                          parse_mode=ParseMode.HTML,
-                         reply_markup=builder_video_processing_kb_cb(file_id=file_dict_id, is_video=is_video),
+                         reply_markup=builder_video_processing_kb_cb(file_id=file_dict_id, allow_note=allow_note),
                          )
 
 

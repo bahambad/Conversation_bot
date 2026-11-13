@@ -9,6 +9,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from keyboards.video_processing_keyboard import VideoCdData
 from modules.audio_defs import audio_from_video
 from modules.jobs import download_tg_file, heavy_job, job_dir, report_errors
+from modules.permissions import can_make_video_notes
 from modules.video_defs import crop_video_to_square
 from routers.callback_handlers.common import claim_entry
 from routers.video_processing import file_id_storage
@@ -16,6 +17,7 @@ from routers.video_processing import file_id_storage
 router = Router(name=__name__)
 
 WAITING_TEXT = "✅ I got it.\nPlease wait a moment..."
+NOTE_FORBIDDEN_TEXT = "⛔️ Video notes are not available for you."
 
 # Какой статус показывать в чате, пока выполняется операция
 CHAT_ACTIONS = {
@@ -32,6 +34,11 @@ async def process_video(call: CallbackQuery, callback_data: VideoCdData, bot: Bo
     user_id = call.from_user.id
     chat_id = call.message.chat.id
     keyboard_message_id = call.message.message_id
+
+    # Кнопки кружка у остальных пользователей нет, но callback_data можно подделать — проверяем ещё раз
+    if operation == "note" and not can_make_video_notes(user_id):
+        await call.answer(NOTE_FORBIDDEN_TEXT, show_alert=True)
+        return
 
     entry = await claim_entry(call, bot, file_id_storage, callback_data.file_id)
     if entry is None:

@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
 from modules.paths import PICTURES_DIR
+from modules.permissions import can_make_video_notes
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,12 @@ _start_photo_id: str | None = None
 
 router = Router(name=__name__)
 
+
+def _video_note_status(user_id: int) -> str:
+    """Пометка к строке про кружочки: они доступны только пользователям из VIDEO_NOTE_USERS."""
+    return "" if can_make_video_notes(user_id) else " (temporarily unavailable)"
+
+
 # Функция старта
 @router.message(CommandStart())
 async def handle_start(message: types.Message):
@@ -24,12 +31,13 @@ async def handle_start(message: types.Message):
 
     # Имя пользователя экранируем: символы вроде "<" ломают HTML-разметку
     user_name = html.escape(message.from_user.full_name)
+    note_status = _video_note_status(message.from_user.id)
     hello_text = f"""👋 Hello, <b>{user_name}</b>!  
 🎧 Welcome to the <b>Audio & Video Conversion Bot</b> 🔁
 
 Here you can easily convert:  
 🎵 <b>Audio files</b> → <i>Voice messages</i>  
-🎬 <b>Video files</b> → <i>Video notes</i> (temporarily unavailable)
+🎬 <b>Video files</b> → <i>Video notes</i>{note_status}
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 ❓ Type /help to learn how to use the bot.
@@ -63,9 +71,10 @@ async def handle_cancel(message: types.Message, state: FSMContext):
 # Функция помощи
 @router.message(Command("help"))
 async def handle_help(message: types.Message):
-    help_text = """🔄 This bot converts:  
+    note_status = _video_note_status(message.from_user.id)
+    help_text = f"""🔄 This bot converts:  
 🎵 <b>MP3 audio files</b> → <i>Voice messages</i>  
-🎬 <b>MP4 videos</b> → <i>Video notes</i> (temporarily unavailable)
+🎬 <b>MP4 videos</b> → <i>Video notes</i>{note_status}
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 📤 Just upload your file and pick an option you need.
