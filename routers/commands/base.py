@@ -1,43 +1,80 @@
+import html
+import logging
+
 from aiogram import Router, types
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import LinkPreviewOptions, ReplyKeyboardRemove
-from aiogram.utils import markdown
+from aiogram.exceptions import TelegramAPIError
+from aiogram.filters import CommandStart, Command
+from aiogram.fsm.context import FSMContext
+from aiogram.types import FSInputFile, ReplyKeyboardRemove
+
+from modules.paths import PICTURES_DIR
+from modules.permissions import can_make_video_notes
+
+logger = logging.getLogger(__name__)
+
+START_PICTURE = PICTURES_DIR / "conversion.png"
+_start_photo_id: str | None = None
 
 router = Router(name=__name__)
 
-# Функция старта
-@router.message(CommandStart()) # Не работает. Убрал вручную на серваке
-async def handle_start(message: types.Message):
 
-    url ="https://sdmntpreastus2.oaiusercontent.com/files/00000000-60cc-51f6-9d6b-4c8d1e75ceac/raw?se=2025-04-05T14%3A13%3A54Z&sp=r&sv=2024-08-04&sr=b&scid=0dd2fe23-ebd7-5f9e-8874-d61e7e1e10ba&skoid=3f3a9132-9530-48ef-96b7-fee5a811733f&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-04-05T08%3A07%3A23Z&ske=2025-04-06T08%3A07%3A23Z&sks=b&skv=2024-08-04&sig=fTrYnU6l%2BLQVSzlNgFfmAmHuNkpq5rh0EGR4E5wjmic%3D"
-    hello_text = f"""{markdown.hide_link(url)}👋 Hello, <b>{message.from_user.full_name}</b>!  
+def _video_note_status(user_id: int) -> str:
+    """Пометка к строке про кружочки: они доступны только пользователям из VIDEO_NOTE_USERS."""
+    return "" if can_make_video_notes(user_id) else " (temporarily unavailable)"
+
+
+# Функция старта
+@router.message(CommandStart())
+async def handle_start(message: types.Message):
+    global _start_photo_id
+
+    # Имя пользователя экранируем: символы вроде "<" ломают HTML-разметку
+    user_name = html.escape(message.from_user.full_name)
+    note_status = _video_note_status(message.from_user.id)
+    hello_text = f"""👋 Hello, <b>{user_name}</b>!  
 🎧 Welcome to the <b>Audio & Video Conversion Bot</b> 🔁
 
 Here you can easily convert:  
 🎵 <b>Audio files</b> → <i>Voice messages</i>  
-🎬 <b>Video files</b> → <i>Video notes</i> (temporarily unavailable)
+🎬 <b>Video files</b> → <i>Video notes</i>{note_status}
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 ❓ Type /help to learn how to use the bot.
 """
-    await message.answer(text=hello_text,
-                         parse_mode=ParseMode.HTML,
-                         reply_markup=ReplyKeyboardRemove(),
-                         link_preview_options=LinkPreviewOptions(
-                             is_disabled=False,
-                             url=url,
-                             show_above_text=True,
-                         )
-                    )
+    try:
+        sent = await message.answer_photo(
+            photo=_start_photo_id or FSInputFile(path=START_PICTURE),
+            caption=hello_text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        # Запоминаем file_id, чтобы не загружать картинку заново на каждый /start
+        _start_photo_id = sent.photo[-1].file_id
+    except (TelegramAPIError, OSError):
+        logger.exception("Failed to send the start picture, falling back to text")
+        await message.answer(text=hello_text,
+                             parse_mode=ParseMode.HTML,
+                             reply_markup=ReplyKeyboardRemove())
+
+
+# Отмена текущего сценария (например, /avangard)
+@router.message(Command("cancel"))
+async def handle_cancel(message: types.Message, state: FSMContext):
+    if await state.get_state() is None:
+        await message.answer(text="Nothing to cancel.")
+        return
+    await state.clear()
+    await message.answer(text="❌ Cancelled.")
 
 
 # Функция помощи
 @router.message(Command("help"))
 async def handle_help(message: types.Message):
-    help_text = """🔄 This bot converts:  
+    note_status = _video_note_status(message.from_user.id)
+    help_text = f"""🔄 This bot converts:  
 🎵 <b>MP3 audio files</b> → <i>Voice messages</i>  
-🎬 <b>MP4 videos</b> → <i>Video notes</i> (temporarily unavailable)
+🎬 <b>MP4 videos</b> → <i>Video notes</i>{note_status}
 🎧 <b>Video notes</b> → <i>Voice messages</i>
 
 📤 Just upload your file and pick an option you need.
