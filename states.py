@@ -14,3 +14,7 @@ class Video_processing(StatesGroup):
 
 class Fragment(StatesGroup):
     timecodes = State()
+
+
+class Edit(StatesGroup):
+    active = State()

@@ -8,6 +8,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
+from modules.edit_session import close_session
 from modules.paths import PICTURES_DIR
 from modules.permissions import is_privileged
 
@@ -64,6 +65,8 @@ async def handle_cancel(message: types.Message, state: FSMContext):
     if await state.get_state() is None:
         await message.answer(text="Nothing to cancel.")
         return
+    # Если отменяется сессия монтажа, вместе с ней удаляются и её файлы
+    close_session(message.from_user.id)
     await state.clear()
     await message.answer(text="❌ Cancelled.")
 
