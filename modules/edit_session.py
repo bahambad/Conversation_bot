@@ -36,6 +36,14 @@ class SessionFile:
 
 
 @dataclass
+class LinkRequest:
+    """Ссылка, присланная в сессии: что именно из неё взять, пользователь выбирает кнопкой."""
+    id: int
+    url: str
+    time_range: tuple[int, int] | None = None
+
+
+@dataclass
 class Plan:
     """Команда, которую модель предложила, а пользователь ещё не подтвердил."""
     id: int
@@ -55,9 +63,11 @@ class EditSession:
     files: list[SessionFile] = field(default_factory=list)
     history: list[dict] = field(default_factory=list)
     pending: Plan | None = None
+    links: dict[int, LinkRequest] = field(default_factory=dict)
     last_used: float = field(default_factory=time.monotonic)
     _next_file_id: int = 1
     _next_plan_id: int = 1
+    _next_link_id: int = 1
 
     def touch(self) -> None:
         self.last_used = time.monotonic()
@@ -101,6 +111,12 @@ class EditSession:
         )
         self.files.append(file)
         return file
+
+    def new_link(self, url: str, time_range: tuple[int, int] | None) -> LinkRequest:
+        link = LinkRequest(id=self._next_link_id, url=url, time_range=time_range)
+        self._next_link_id += 1
+        self.links[link.id] = link
+        return link
 
     def new_plan(self, **kwargs) -> Plan:
         self.pending = Plan(id=self._next_plan_id, **kwargs)

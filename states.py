@@ -18,3 +18,5 @@ class Fragment(StatesGroup):
 
 class Edit(StatesGroup):
     active = State()
+    # Ожидание таймкодов для фрагмента по ссылке внутри сессии монтажа
+    timecodes = State()

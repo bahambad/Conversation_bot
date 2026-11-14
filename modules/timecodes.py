@@ -42,6 +42,19 @@ def parse_time_range(text: str) -> tuple[int, int]:
     return start, end
 
 
+_RANGE_IN_TEXT_RE = re.compile(r'(?<![\d:])(\d[\d:]*)\s*[-–—]\s*(\d[\d:]*)(?![\d:])')
+
+
+def find_time_range(text: str) -> tuple[int, int] | None:
+    """Ищет отрезок вида «1:02:30-1:03:10» внутри произвольного текста; None — если его нет."""
+    for match in _RANGE_IN_TEXT_RE.finditer(text):
+        try:
+            return parse_time_range(f"{match.group(1)}-{match.group(2)}")
+        except ValueError:
+            continue
+    return None
+
+
 def format_timecode(seconds: int) -> str:
     hours, rest = divmod(int(seconds), 3600)
     minutes, secs = divmod(rest, 60)
