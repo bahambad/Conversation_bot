@@ -10,7 +10,9 @@ from aiogram.types import FSInputFile, ReplyKeyboardRemove
 
 from modules.edit_session import close_session
 from modules.paths import PICTURES_DIR
-from modules.permissions import is_privileged
+from modules.permissions import can_use_fragments, is_privileged
+from modules.timecodes import format_timecode
+from modules.yt_downloads import MAX_AUDIO_FRAGMENT_DURATION, MAX_FRAGMENT_DURATION
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,18 @@ router = Router(name=__name__)
 def _video_note_status(user_id: int) -> str:
     """Пометка к строке про кружочки: они доступны только привилегированным пользователям (PRIVILEGED_USERS)."""
     return "" if is_privileged(user_id) else " (temporarily unavailable)"
+
+
+def _fragments_help(user_id: int) -> str:
+    """Абзац про фрагменты по таймкодам: его видят только те, кому они доступны."""
+    if not can_use_fragments(user_id):
+        return ""
+    return f"""
+✂️ <b>Fragments:</b> send a link and press <b>Video part</b> or <b>Audio part</b>, then send \
+the timecodes, for example <code>1:02:30-1:03:10</code>. A fragment can be up to \
+<b>{format_timecode(MAX_FRAGMENT_DURATION)}</b> of video or <b>{format_timecode(MAX_AUDIO_FRAGMENT_DURATION)}</b> \
+of audio; the source video itself can be of any length.
+"""
 
 
 # Функция старта
@@ -75,6 +89,7 @@ async def handle_cancel(message: types.Message, state: FSMContext):
 @router.message(Command("help"))
 async def handle_help(message: types.Message):
     note_status = _video_note_status(message.from_user.id)
+    fragments_help = _fragments_help(message.from_user.id)
     help_text = f"""🔄 This bot converts:  
 🎵 <b>MP3 audio files</b> → <i>Voice messages</i>  
 🎬 <b>MP4 videos</b> → <i>Video notes</i>{note_status}
@@ -82,7 +97,7 @@ async def handle_help(message: types.Message):
 
 📤 Just upload your file and pick an option you need.
 ℹ️ <b>Note:</b> If you want to create a <b>video note</b>, the video must be shorter than ⏱️ <b>60 seconds</b>.
-
+{fragments_help}
 
 ⚠️ <b>ATTENTION!</b> Audio and video files must be under <b>20 MB</b>! ⚠️
 """

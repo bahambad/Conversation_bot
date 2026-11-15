@@ -11,11 +11,16 @@ Built with [aiogram 3](https://docs.aiogram.dev/), [FFmpeg](https://ffmpeg.org/)
 | A video or a video note | A voice message or an MP3 file (you choose with a button) |
 | A video (privileged users only) | A video note |
 | An `https://` link to a supported site | The video (MP4) or its audio (MP3) |
+| A link, then timecodes (privileged users only) | That fragment of the video, as video or as audio |
 | `/avangard`, then a video note | The same video note with a song mixed in |
 | `/avangard`, then a video (privileged users only) | The video cropped to a video note, with a song mixed in |
 
 Audio downloaded by link is sent with the channel name as the performer and the video thumbnail as the cover
 (the channel avatar is used when there is no thumbnail).
+
+Privileged users get two more buttons under a link, **Video part** and **Audio part**: the bot asks for timecodes
+(`1:02:30-1:03:10` or `90-150`) and sends only that part. Only the requested range is downloaded, so the source
+video can be of any length.
 
 Voice messages are not processed: the bot replies with a hint.
 
@@ -37,6 +42,7 @@ The ban list is kept in memory and is cleared when the bot restarts.
 
 - Files up to **20 MB**, both uploaded and downloaded by link.
 - Videos turned into video notes must be shorter than **60 seconds**.
+- Fragments by timecodes: up to **5 minutes** of video or **10 minutes** of audio, up to 49 MB.
 - Playlists and live streams are not downloaded.
 - One conversion or download per user at a time, two for the whole bot; other requests wait in a queue.
 - Flood protection: users who send messages or press buttons too fast are ignored for a few seconds.
@@ -54,7 +60,7 @@ cp env.example .env
 |---|---|---|
 | `BOT_TOKEN` | yes | Bot token from [@BotFather](https://t.me/BotFather) |
 | `ADMIN` | yes | Numeric Telegram id of the admin |
-| `PRIVILEGED_USERS` | no | Comma separated ids of privileged users. They get the features that are not open to everyone because of server load or abuse risk; currently that is turning videos into video notes. Empty by default |
+| `PRIVILEGED_USERS` | no | Comma separated ids of privileged users. They get the features that are not open to everyone because of server load or abuse risk; currently that is turning videos into video notes and downloading fragments by timecodes. Empty by default |
 | `ALLOWED_DOMAINS` | no | Comma separated sites that links may point to. Replaces the built-in list (see below) |
 
 Built-in list of sites for downloading by link (subdomains included): `youtube.com`, `youtu.be`, `tiktok.com`,
