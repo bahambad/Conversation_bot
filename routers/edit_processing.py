@@ -1,8 +1,8 @@
 """
 Экспериментальная функция: монтаж по текстовому запросу (/edit).
 
-Доступна только админу и нигде в сообщениях бота не упоминается. В сессии монтажа
-админ присылает файлы и пишет обычным текстом, что с ними сделать; языковая модель
+Доступна пользователям из LLM_USERS и админу, в сообщениях бота не упоминается. В сессии
+монтажа пользователь присылает файлы и пишет обычным текстом, что с ними сделать; языковая модель
 составляет команду ffmpeg, бот показывает план и после подтверждения выполняет его.
 """
 import asyncio
@@ -28,7 +28,7 @@ from modules.edit_engine import execute_plan, make_plan
 from modules.edit_session import EditSession, LinkRequest, SessionFile, close_session, get_session, open_session
 from modules.errors import UnsupportedUrlError
 from modules.jobs import download_tg_file, heavy_job, is_busy, job_dir, report_errors
-from modules.permissions import ADMIN_ID
+from modules.permissions import can_use_llm, is_admin
 from modules.timecodes import find_time_range, format_timecode, parse_time_range
 from modules.yt_downloads import (MAX_AUDIO_FRAGMENT_DURATION, MAX_FRAGMENT_DURATION, MAX_FRAGMENT_SIZE,
                                   download_media, validate_url)
@@ -36,9 +36,16 @@ from routers.video_processing import _extract_links
 from states import Edit
 
 router = Router(name=__name__)
-# Всё в этом роутере — только для админа
-router.message.filter(F.from_user.id == ADMIN_ID)
-router.callback_query.filter(F.from_user.id == ADMIN_ID)
+
+
+def _has_access(event: types.Message | CallbackQuery) -> bool:
+    return event.from_user is not None and can_use_llm(event.from_user.id)
+
+
+# Всё в этом роутере — только для тех, кому разрешено тратить токены модели (LLM_USERS и админ).
+# Для остальных команда /edit как будто не существует.
+router.message.filter(_has_access)
+router.callback_query.filter(_has_access)
 
 START_TEXT = """🎛 <b>Editing session started.</b>
 
@@ -91,7 +98,9 @@ async def _session_or_expire(event_user_id: int, state: FSMContext) -> EditSessi
 @router.message(Command("edit"))
 async def start_edit(message: types.Message, state: FSMContext):
     if not llm.is_configured():
-        await message.answer(NOT_CONFIGURED_TEXT)
+        # Подробности настройки — только админу
+        text = NOT_CONFIGURED_TEXT if is_admin(message.from_user.id) else "⛔️ Editing is not available right now."
+        await message.answer(text)
         return
     # Новая сессия заменяет прежнюю вместе с её файлами
     open_session(message.from_user.id)
