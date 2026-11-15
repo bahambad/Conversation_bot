@@ -1,7 +1,7 @@
 """
-Экспериментальная функция: скачивание фрагмента видео по таймкодам.
+Скачивание фрагмента видео или аудио по таймкодам.
 
-Доступна только админу и нигде в сообщениях бота не упоминается.
+Доступно привилегированным пользователям и админу; в /start и /help не упоминается.
 Скачивается только указанный отрезок, поэтому исходное видео может быть любого размера.
 """
 import asyncio
@@ -16,7 +16,7 @@ from aiogram.utils.chat_action import ChatActionSender
 
 from keyboards.yt_dlp_keyboard import UrlOfVideoCdData
 from modules.jobs import heavy_job, job_dir, report_errors
-from modules.permissions import is_admin
+from modules.permissions import can_use_fragments
 from modules.timecodes import format_timecode, parse_time_range
 from modules.yt_downloads import (MAX_AUDIO_FRAGMENT_DURATION, MAX_FRAGMENT_DURATION, MAX_FRAGMENT_SIZE,
                                   download_media)
@@ -47,8 +47,8 @@ def _max_duration(audio_only: bool) -> int:
 
 @router.callback_query(UrlOfVideoCdData.filter(F.operation.in_({"fragment", "fragment_audio"})))
 async def ask_timecodes(call: CallbackQuery, callback_data: UrlOfVideoCdData, bot: Bot, state: FSMContext):
-    # Кнопку видит только админ, но callback_data можно подделать
-    if not is_admin(call.from_user.id):
+    # Кнопки видят только те, кому фрагменты разрешены, но callback_data можно подделать
+    if not can_use_fragments(call.from_user.id):
         await call.answer()
         return
 
@@ -75,7 +75,7 @@ async def download_fragment(message: types.Message, state: FSMContext, bot: Bot)
     data = await state.get_data()
     url = data.get("fragment_url")
     audio_only = bool(data.get("fragment_audio"))
-    if not is_admin(user_id) or not url:
+    if not can_use_fragments(user_id) or not url:
         await state.clear()
         return
 
